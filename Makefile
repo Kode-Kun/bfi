@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -pedantic
-TARGET=bfc
+TARGET=bfi
 SRC=main.c
 
 default:

@@ -1,7 +1,7 @@
-# Simple brainfuck compiler
+# Simple brainfuck interpreter
 
-`bfc` is a simple brainfuck compiler, created as an experiment in interpreter and compiler design.
+`bfi` is a simple brainfuck interpreter, created as an experiment in interpreter and compiler design.
 
-`bfc` is currently only an interpreter, but it has the building blocks (it parses the entire source and creates an Abstract Syntax Tree before interpreting it) to make a compiler.
+`bfi` is made not as a stand-alone application, but as a building block for an eventual compiler. It parses the entire source and creates an Abstract Syntax Tree before interpreting it, which is not needed for an interpreter.
 
-`bfc` is written as a single file of pure C, and depends only on libc.
+`bfi` is written as a single file of pure C, and depends only on libc.
