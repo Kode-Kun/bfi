@@ -6,9 +6,14 @@
 
 #define line__ "-------------------------------"
 
+//---------- Type declarations ----------
+
+typedef struct BF_OP BF_OP;
+typedef struct AST AST;
+
 //---------- Brainfuck operations ----------
 
-enum OP_CODE
+typedef enum OP_CODE
 {
   OP_MVR,          // >
   OP_MVL,          // <
@@ -19,19 +24,25 @@ enum OP_CODE
   OP_JMPZ,         // [
   OP_JMPNZ,        // ]
   OP_NULL,         // for debug
+}OP_CODE;
+
+union OP_PROP
+{
+  int count;
+  BF_OP *match;
 };
 
 struct BF_OP
 {
-  enum OP_CODE op;
-  int count;
+  OP_CODE op;
+  union OP_PROP prop;
 };
 
 //---------- Abstract Syntax Tree ----------
 
 struct AST
 {
-  struct BF_OP *ops;
+  BF_OP *ops;
   size_t len;
 };
 
@@ -39,61 +50,62 @@ struct AST
 // it works perfectly for the first two operations appended, but then it starts crashing out.
 // it doesn't seem to copy the operation from op to the new array after appending a couple operations successfully.
 // it also fails to copy the count sometimes, whenever the count is 1 apparently.
-void ast_append(struct AST *ast, struct BF_OP op)
+void ast_append(AST *ast, BF_OP op)
 {
-  size_t size = (ast->len + 1) * sizeof(struct BF_OP);
-  struct BF_OP *new = realloc(ast->ops, size);
+  size_t size = (ast->len + 1) * sizeof(BF_OP);
+  BF_OP *new = realloc(ast->ops, size);
   if(new == NULL) return;
-  memcpy(&new[ast->len * sizeof(struct BF_OP)], &op, sizeof(struct BF_OP)); 
+  memcpy(&new[ast->len * sizeof(BF_OP)], &op, sizeof(BF_OP)); 
   ast->ops = new;
   ast->ops[ast->len].op = op.op;
-  ast->ops[ast->len].count = op.count;
+  ast->ops[ast->len].prop.count = op.prop.count;
   ast->len++;
 }
 
-void ast_free(struct AST *ast)
+void ast_free(AST *ast)
 {
   free(ast->ops);
 }
 
 //---------- Parsing ----------
 
-struct BF_OP char_to_op(char c, int count)
+BF_OP char_to_op(char c, union OP_PROP prop)
 {
   switch(c){
   case '>':
-    return (struct BF_OP){OP_MVR,   count};
-  case '<':
-    return (struct BF_OP){OP_MVL,   count};
-  case '+':
-    return (struct BF_OP){OP_INC,   count};
-  case '-':
-    return (struct BF_OP){OP_DEC,   count};
-  case ',':
-    return (struct BF_OP){OP_IN,    count};
-  case '.':
-    return (struct BF_OP){OP_OUT,   count};
-  case '[':
-    return (struct BF_OP){OP_JMPZ,  count};
-  case ']':
-    return (struct BF_OP){OP_JMPNZ, count};
+    return (BF_OP){OP_MVR,   {prop}};
+  case '<': 
+    return (BF_OP){OP_MVL,   {prop}};
+  case '+': 
+    return (BF_OP){OP_INC,   {prop}};
+  case '-': 
+    return (BF_OP){OP_DEC,   {prop}};
+  case ',': 
+    return (BF_OP){OP_IN,    {prop}};
+  case '.': 
+    return (BF_OP){OP_OUT,   {prop}};
+  case '[': 
+    return (BF_OP){OP_JMPZ,  {prop}};
+  case ']': 
+    return (BF_OP){OP_JMPNZ, {prop}};
   }
-  return (struct BF_OP){OP_NULL, 0};
+  return   (BF_OP){OP_NULL,      {0}};
 }
 
-struct AST* parse_source(char *src, size_t size)
+AST* parse_source(char *src, size_t size)
 {
   char *c = src;
-  struct AST *ast = malloc(sizeof(struct AST));
+  AST *ast = malloc(sizeof(AST));
   for(size_t i = 0; i < size; i++){
     int count = 1;
+    BF_OP *match = NULL;
     switch(c[i]){
     case '>':
       while(c[i+1] == '>'){
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], count));
+      ast_append(ast, char_to_op(c[i], {count}));
       #ifdef AST_DEBUG
       printf("OK:\tAdded operation of type OP_MVR %d times to AST.\n", count);
       #endif
@@ -103,7 +115,7 @@ struct AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], count));
+      ast_append(ast, char_to_op(c[i], {count}));
       #ifdef AST_DEBUG
       printf("OK:\tAdded operation of type OP_MVL %d times to AST.\n", count);
       #endif
@@ -113,7 +125,7 @@ struct AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], count));
+      ast_append(ast, char_to_op(c[i], {count}));
       #ifdef AST_DEBUG
       printf("OK:\tAdded operation of type OP_INC %d times to AST.\n", count);
       #endif
@@ -123,7 +135,7 @@ struct AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], count));
+      ast_append(ast, char_to_op(c[i], {count}));
       #ifdef AST_DEBUG
       printf("OK:\tAdded operation of type OP_DEC %d times to AST.\n", count);
       #endif
@@ -133,7 +145,7 @@ struct AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], count));
+      ast_append(ast, char_to_op(c[i], {count}));
       #ifdef AST_DEBUG
       printf("OK:\tAdded operation of type OP_IN %d times to AST.\n", count);
       #endif
@@ -143,27 +155,21 @@ struct AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], count));
+      ast_append(ast, char_to_op(c[i], {count}));
       #ifdef AST_DEBUG
       printf("OK:\tAdded operation of type OP_OUT %d times to AST.\n", count);
       #endif
       break;
     case '[':
-      while(c[i+1] == '['){
-	count++;
-	i++;
-      }
-      ast_append(ast, char_to_op(c[i], count));
+      
+      ast_append(ast, char_to_op(c[i], {match}));
       #ifdef AST_DEBUG
       printf("OK:\tAdded operation of type OP_JMPZ %d times to AST.\n", count);
       #endif
       break;
     case ']':
-      while(c[i+1] == ']'){
-	count++;
-	i++;
-      }
-      ast_append(ast, char_to_op(c[i], count));
+
+      ast_append(ast, char_to_op(c[i], {match}));
       #ifdef AST_DEBUG
       printf("OK:\tAdded operation of type OP_JMPNZ %d times to AST.\n", count);
       #endif
@@ -223,7 +229,7 @@ int main(int argc, char **argv)
   printf("File size:\t%ld\n", src_size);
   printf("Filename:\t%s\n\n", filename);
 
-  struct AST *ast = parse_source(src, src_size);
+  AST *ast = parse_source(src, src_size);
 
   // here's where the actual interpretation happens.
   
@@ -231,7 +237,7 @@ int main(int argc, char **argv)
 
   int last_jmp;
   for(int i = 0; i < (int)ast->len; i++){
-    int count = ast->ops[i].count;
+    int count = ast->ops[i].prop.count;
     switch(ast->ops[i].op){
     case OP_MVR:
       ptr += count;
