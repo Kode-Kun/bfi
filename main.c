@@ -35,13 +35,19 @@ struct AST
   size_t len;
 };
 
+//TODO: fix this cursed ass function. i can't figure this bug out for the life of me.
+// it works perfectly for the first two operations appended, but then it starts crashing out.
+// it doesn't seem to copy the operation from op to the new array after appending a couple operations successfully.
+// it also fails to copy the count sometimes, whenever the count is 1 apparently.
 void ast_append(struct AST *ast, struct BF_OP op)
 {
   size_t size = (ast->len + 1) * sizeof(struct BF_OP);
   struct BF_OP *new = realloc(ast->ops, size);
   if(new == NULL) return;
-  memcpy(&new[ast->len*sizeof(struct BF_OP)], &op, size); 
+  memcpy(&new[ast->len * sizeof(struct BF_OP)], &op, sizeof(struct BF_OP)); 
   ast->ops = new;
+  ast->ops[ast->len].op = op.op;
+  ast->ops[ast->len].count = op.count;
   ast->len++;
 }
 
@@ -218,6 +224,45 @@ int main(int argc, char **argv)
   printf("Filename:\t%s\n\n", filename);
 
   struct AST *ast = parse_source(src, src_size);
+
+  // here's where the actual interpretation happens.
+  // commenting it our for now while i fixed the damned ast_append() function
+  /*
+  printf("%s\n", line__);
+  for(size_t i = 0; i < ast->len; i++){
+    int count = ast->ops[i].count;
+    switch(ast->ops[i].op){
+    case OP_MVR:
+      ptr += count;
+      break;
+    case OP_MVL:
+      ptr -= count;
+      break;
+    case OP_INC:
+      *ptr += count;
+      break;
+    case OP_DEC:
+      *ptr -= count;
+      break;
+    case OP_IN:
+      *ptr = (unsigned char)fgetc(stdin);
+      break;
+    case OP_OUT:
+      for(int j = 0; j < count; j++){
+	fprintf(stdout, "%s", *ptr);
+      }
+      break;
+    case OP_JMPZ:
+      fprintf(stdout, "OK: OP_JMPZ ignored.\n");
+      break;
+    case OP_JMPNZ:
+      fprintf(stdout, "OK: OP_JMPNZ ignored.\n");
+      break;
+    case OP_NULL:
+      fprintf(stderr, "WARNING: OP_NULL encountered. Ignoring...\n");
+    }
+  }
+  */
   ast_free(ast);
   free(ast);
 
