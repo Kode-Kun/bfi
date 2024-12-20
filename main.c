@@ -215,7 +215,7 @@ int main(int argc, char **argv)
   fseek(src_fd, 0, SEEK_SET);
 
   char *src = malloc(src_size + 1);
-  fread(src, 1, src_size, src_fd);
+  fread(src, sizeof(char), src_size, src_fd);
 
   printf("%s\n", line__);
   printf("%s\n", src);
@@ -228,7 +228,9 @@ int main(int argc, char **argv)
   // here's where the actual interpretation happens.
   
   printf("%s\n", line__);
-  for(size_t i = 0; i < ast->len; i++){
+
+  int last_jmp;
+  for(int i = 0; i < (int)ast->len; i++){
     int count = ast->ops[i].count;
     switch(ast->ops[i].op){
     case OP_MVR:
@@ -252,10 +254,16 @@ int main(int argc, char **argv)
       }
       break;
     case OP_JMPZ:
-      fprintf(stdout, "OK: OP_JMPZ ignored.\n");
+      if(*ptr == 0){
+	while(ast->ops[i].op != OP_JMPNZ) i++;
+      } else{
+	last_jmp = i;
+      }
       break;
     case OP_JMPNZ:
-      fprintf(stdout, "OK: OP_JMPNZ ignored.\n");
+      if(*ptr != 0){
+	i = last_jmp;
+      }
       break;
     case OP_NULL:
       fprintf(stderr, "WARNING: OP_NULL encountered. Ignoring...\n");
