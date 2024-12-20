@@ -226,8 +226,7 @@ int main(int argc, char **argv)
   struct AST *ast = parse_source(src, src_size);
 
   // here's where the actual interpretation happens.
-  // commenting it our for now while i fixed the damned ast_append() function
-  /*
+  
   printf("%s\n", line__);
   for(size_t i = 0; i < ast->len; i++){
     int count = ast->ops[i].count;
@@ -249,7 +248,7 @@ int main(int argc, char **argv)
       break;
     case OP_OUT:
       for(int j = 0; j < count; j++){
-	fprintf(stdout, "%s", *ptr);
+	fprintf(stdout, "%c", *ptr);
       }
       break;
     case OP_JMPZ:
@@ -262,7 +261,7 @@ int main(int argc, char **argv)
       fprintf(stderr, "WARNING: OP_NULL encountered. Ignoring...\n");
     }
   }
-  */
+
   ast_free(ast);
   free(ast);
 
