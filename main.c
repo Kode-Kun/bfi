@@ -29,7 +29,7 @@ typedef enum OP_CODE
 union OP_PROP
 {
   int count;
-  BF_OP *match;
+  int match;
 };
 
 struct BF_OP
@@ -46,10 +46,6 @@ struct AST
   size_t len;
 };
 
-//TODO: fix this cursed ass function. i can't figure this bug out for the life of me.
-// it works perfectly for the first two operations appended, but then it starts crashing out.
-// it doesn't seem to copy the operation from op to the new array after appending a couple operations successfully.
-// it also fails to copy the count sometimes, whenever the count is 1 apparently.
 void ast_append(AST *ast, BF_OP op)
 {
   size_t size = (ast->len + 1) * sizeof(BF_OP);
@@ -69,27 +65,27 @@ void ast_free(AST *ast)
 
 //---------- Parsing ----------
 
-BF_OP char_to_op(char c, union OP_PROP prop)
+BF_OP char_to_op(char c, int prop)
 {
   switch(c){
   case '>':
-    return (BF_OP){OP_MVR,   {prop}};
+    return (BF_OP){OP_MVR,   {.count = prop}};
   case '<': 
-    return (BF_OP){OP_MVL,   {prop}};
+    return (BF_OP){OP_MVL,   {.count = prop}};
   case '+': 
-    return (BF_OP){OP_INC,   {prop}};
+    return (BF_OP){OP_INC,   {.count = prop}};
   case '-': 
-    return (BF_OP){OP_DEC,   {prop}};
+    return (BF_OP){OP_DEC,   {.count = prop}};
   case ',': 
-    return (BF_OP){OP_IN,    {prop}};
+    return (BF_OP){OP_IN,    {.count = prop}};
   case '.': 
-    return (BF_OP){OP_OUT,   {prop}};
+    return (BF_OP){OP_OUT,   {.count = prop}};
   case '[': 
-    return (BF_OP){OP_JMPZ,  {prop}};
+    return (BF_OP){OP_JMPZ,  {.match = prop}};
   case ']': 
-    return (BF_OP){OP_JMPNZ, {prop}};
+    return (BF_OP){OP_JMPNZ, {.match = prop}};
   }
-  return   (BF_OP){OP_NULL,      {0}};
+  return   (BF_OP){OP_NULL,              {0}};
 }
 
 AST* parse_source(char *src, size_t size)
@@ -98,16 +94,16 @@ AST* parse_source(char *src, size_t size)
   AST *ast = malloc(sizeof(AST));
   for(size_t i = 0; i < size; i++){
     int count = 1;
-    BF_OP *match = NULL;
+    int match = 0;
     switch(c[i]){
     case '>':
       while(c[i+1] == '>'){
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], {count}));
+      ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_MVR %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type OP_MVR %d times to AST.\n", count);
       #endif
       break;
     case '<':
@@ -115,9 +111,9 @@ AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], {count}));
+      ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_MVL %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type OP_MVL %d times to AST.\n", count);
       #endif
       break;
     case '+':
@@ -125,9 +121,9 @@ AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], {count}));
+      ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_INC %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type OP_INC %d times to AST.\n", count);
       #endif
       break;
     case '-':
@@ -135,9 +131,9 @@ AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], {count}));
+      ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_DEC %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type OP_DEC %d times to AST.\n", count);
       #endif
       break;
     case ',':
@@ -145,9 +141,9 @@ AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], {count}));
+      ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_IN %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type OP_IN %d times to AST.\n", count);
       #endif
       break;
     case '.':
@@ -155,34 +151,37 @@ AST* parse_source(char *src, size_t size)
 	count++;
 	i++;
       }
-      ast_append(ast, char_to_op(c[i], {count}));
+      ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_OUT %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type OP_OUT %d times to AST.\n", count);
       #endif
       break;
     case '[':
-      
-      ast_append(ast, char_to_op(c[i], {match}));
+      ast_append(ast, char_to_op(c[i], match));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_JMPZ %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type OP_JMPZ %d times to AST.\n", count);
       #endif
       break;
     case ']':
-
-      ast_append(ast, char_to_op(c[i], {match}));
+      ast_append(ast, char_to_op(c[i], match));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_JMPNZ %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type OP_JMPNZ %d times to AST.\n", count);
       #endif
       break;
     default:
       #ifdef AST_DEBUG
-      printf("OK:\tIgnored non-op character\n");
+      fprintf(stderr, "OK:\tIgnored non-op character\n");
       #endif
       break;
     }
   }
   return ast; 
 }
+
+// void parse_ast(AST *ast)
+// {
+//   //TODO
+// }
 
 unsigned char tape[30000] = {0};
 unsigned char *ptr = tape;
