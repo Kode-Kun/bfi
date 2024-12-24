@@ -35,10 +35,6 @@ struct AST
   size_t len;
 };
 
-//TODO: fix this cursed ass function. i can't figure this bug out for the life of me.
-// it works perfectly for the first two operations appended, but then it starts crashing out.
-// it doesn't seem to copy the operation from op to the new array after appending a couple operations successfully.
-// it also fails to copy the count sometimes, whenever the count is 1 apparently.
 void ast_append(struct AST *ast, struct BF_OP op)
 {
   size_t size = (ast->len + 1) * sizeof(struct BF_OP);
@@ -95,7 +91,7 @@ struct AST* parse_source(char *src, size_t size)
       }
       ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_MVR %d times to AST.\n", count);
+      printf("OK:\tAdded operation of type OP_MVR %d time%sto AST.\n", count, count > 1 ? "s " : " ");
       #endif
       break;
     case '<':
@@ -105,7 +101,7 @@ struct AST* parse_source(char *src, size_t size)
       }
       ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_MVL %d times to AST.\n", count);
+      printf("OK:\tAdded operation of type OP_MVL %d time%sto AST.\n", count, count > 1 ? "s " : " ");
       #endif
       break;
     case '+':
@@ -115,7 +111,7 @@ struct AST* parse_source(char *src, size_t size)
       }
       ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_INC %d times to AST.\n", count);
+      printf("OK:\tAdded operation of type OP_INC %d time%sto AST.\n", count, count > 1 ? "s " : " ");
       #endif
       break;
     case '-':
@@ -125,7 +121,7 @@ struct AST* parse_source(char *src, size_t size)
       }
       ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_DEC %d times to AST.\n", count);
+      printf("OK:\tAdded operation of type OP_DEC %d time%sto AST.\n", count, count > 1 ? "s " : " ");
       #endif
       break;
     case ',':
@@ -135,7 +131,7 @@ struct AST* parse_source(char *src, size_t size)
       }
       ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_IN %d times to AST.\n", count);
+      printf("OK:\tAdded operation of type OP_IN %d time%sto AST.\n", count, count > 1 ? "s " : " ");
       #endif
       break;
     case '.':
@@ -145,7 +141,7 @@ struct AST* parse_source(char *src, size_t size)
       }
       ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_OUT %d times to AST.\n", count);
+      printf("OK:\tAdded operation of type OP_OUT %d time%sto AST.\n", count, count > 1 ? "s " : " ");
       #endif
       break;
     case '[':
@@ -155,7 +151,7 @@ struct AST* parse_source(char *src, size_t size)
       }
       ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_JMPZ %d times to AST.\n", count);
+      printf("OK:\tAdded operation of type OP_JMPZ %d time%sto AST.\n", count, count > 1 ? "s " : " ");
       #endif
       break;
     case ']':
@@ -165,7 +161,7 @@ struct AST* parse_source(char *src, size_t size)
       }
       ast_append(ast, char_to_op(c[i], count));
       #ifdef AST_DEBUG
-      printf("OK:\tAdded operation of type OP_JMPNZ %d times to AST.\n", count);
+      printf("OK:\tAdded operation of type OP_JMPNZ %d time%sto AST.\n", count, count > 1 ? "s " : " ");
       #endif
       break;
     default:
