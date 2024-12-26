@@ -68,25 +68,69 @@ void ast_free(AST *ast)
 
 BF_OP char_to_op(char c, int prop)
 {
+  BF_OP op = {OP_NULL, {0}};
   switch(c){
   case '>':
-    return (BF_OP){OP_MVR,   {.count = prop}};
+    op = (BF_OP){ .op = OP_MVR,   {.count = prop} };
+    break;
   case '<': 
-    return (BF_OP){OP_MVL,   {.count = prop}};
+    op = (BF_OP){ .op = OP_MVL,   {.count = prop} };
+    break;
   case '+': 
-    return (BF_OP){OP_INC,   {.count = prop}};
+    op = (BF_OP){ .op = OP_INC,   {.count = prop} };
+    break;
   case '-': 
-    return (BF_OP){OP_DEC,   {.count = prop}};
+    op = (BF_OP){ .op = OP_DEC,   {.count = prop} };
+    break;
   case ',': 
-    return (BF_OP){OP_IN,    {.count = prop}};
+    op = (BF_OP){ .op = OP_IN,    {.count = prop} };
+    break;
   case '.': 
-    return (BF_OP){OP_OUT,   {.count = prop}};
+    op = (BF_OP){ .op = OP_OUT,   {.count = prop} };
+    break;
   case '[': 
-    return (BF_OP){OP_JMPZ,  {.match = prop}};
+    op = (BF_OP){ .op = OP_JMPZ,  {.match = prop} };
+    break;
   case ']': 
-    return (BF_OP){OP_JMPNZ, {.match = prop}};
+    op = (BF_OP){ .op = OP_JMPNZ, {.match = prop} };
+    break;
   }
-  return   (BF_OP){OP_NULL,              {0}};
+  return op;
+}
+
+char *op_to_string(BF_OP op)
+{
+  char *s;
+  switch(op.op){
+  case OP_MVR:
+    s = "OP_MVR";
+    break;
+  case OP_MVL:
+    s = "OP_MVL";
+    break;
+  case OP_INC:
+    s = "OP_INC";
+    break;
+  case OP_DEC:
+    s = "OP_DEC";
+    break;
+  case OP_IN:
+    s = "OP_IN";
+    break;
+  case OP_OUT:
+    s = "OP_OUT";
+    break;
+  case OP_JMPZ:
+    s = "OP_JMPZ";
+    break;
+  case OP_JMPNZ:
+    s = "OP_JMPNZ";
+    break;
+  case OP_NULL:
+    s = "OP_NULL";
+    break;
+  }     
+  return s;
 }
 
 // returns pointer to heap-allocated AST struct. Caller must call free()
@@ -97,80 +141,30 @@ AST* parse_source(char *src, size_t size)
   for(size_t i = 0; i < size; i++){
     int count = 1;
     int match = 0;
+    BF_OP op;
     switch(c[i]){
-    // TODO: compact this up. Every single case except the two JMPs do the exact same thing,
-    // so it should only be written once. Create function to convert from OP_CODE to string,
-    // then compare c[i+count] to c[i] and add count-1 to i 
     case '>':
-      while(c[i+1] == '>'){
-	count++;
-	i++;
-      }
-      ast_append(ast, char_to_op(c[i], count));
-      #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type OP_MVR %d times to AST.\n", count);
-      #endif
-      break;
     case '<':
-      while(c[i+1] == '<'){
-	count++;
-	i++;
-      }
-      ast_append(ast, char_to_op(c[i], count));
-      #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type OP_MVL %d times to AST.\n", count);
-      #endif
-      break;
     case '+':
-      while(c[i+1] == '+'){
-	count++;
-	i++;
-      }
-      ast_append(ast, char_to_op(c[i], count));
-      #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type OP_INC %d times to AST.\n", count);
-      #endif
-      break;
     case '-':
-      while(c[i+1] == '-'){
-	count++;
-	i++;
-      }
-      ast_append(ast, char_to_op(c[i], count));
-      #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type OP_DEC %d times to AST.\n", count);
-      #endif
-      break;
     case ',':
-      while(c[i+1] == ','){
-	count++;
-	i++;
-      }
-      ast_append(ast, char_to_op(c[i], count));
-      #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type OP_IN %d times to AST.\n", count);
-      #endif
-      break;
     case '.':
-      while(c[i+1] == '.'){
+      while(c[i+count] == c[i]){
 	count++;
-	i++;
       }
-      ast_append(ast, char_to_op(c[i], count));
+      i += (count - 1);
+      op = char_to_op(c[i], count);
+      ast_append(ast, op);
       #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type OP_OUT %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type %s %d times to AST.\n", op_to_string(op), count);
       #endif
       break;
     case '[':
-      ast_append(ast, char_to_op(c[i], match));
-      #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type OP_JMPZ %d times to AST.\n", count);
-      #endif
-      break;
     case ']':
-      ast_append(ast, char_to_op(c[i], match));
+      op = char_to_op(c[i], match);
+      ast_append(ast, op);
       #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type OP_JMPNZ %d times to AST.\n", count);
+      fprintf(stderr, "OK:\tAdded operation of type %s %d times to AST.\n", op_to_string(op), count);
       #endif
       break;
     default:
