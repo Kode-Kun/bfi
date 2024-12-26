@@ -43,7 +43,7 @@ struct BF_OP
 struct AST
 {
   BF_OP *ops;
-  size_t len;
+  int len;
 };
 
 void ast_append(AST *ast, BF_OP op)
@@ -61,6 +61,7 @@ void ast_append(AST *ast, BF_OP op)
 void ast_free(AST *ast)
 {
   free(ast->ops);
+  free(ast);
 }
 
 //---------- Parsing ----------
@@ -88,6 +89,7 @@ BF_OP char_to_op(char c, int prop)
   return   (BF_OP){OP_NULL,              {0}};
 }
 
+// returns pointer to heap-allocated AST struct. Caller must call free()
 AST* parse_source(char *src, size_t size)
 {
   char *c = src;
@@ -96,6 +98,9 @@ AST* parse_source(char *src, size_t size)
     int count = 1;
     int match = 0;
     switch(c[i]){
+    // TODO: compact this up. Every single case except the two JMPs do the exact same thing,
+    // so it should only be written once. Create function to convert from OP_CODE to string,
+    // then compare c[i+count] to c[i] and add count-1 to i 
     case '>':
       while(c[i+1] == '>'){
 	count++;
@@ -178,10 +183,41 @@ AST* parse_source(char *src, size_t size)
   return ast; 
 }
 
-// void parse_ast(AST *ast)
-// {
-//   //TODO
-// }
+//TODO: fix this cursed function (flashbacks, anyone?)
+// I honestly have no fucking idea how to implement error handling here (which would just be
+// in case there's a JMPZ without a matching JMPNZ and vice-versa, and give the exact position
+// of the error would be cool too. But i can't even get the JMPs to match in error-less code...)
+void match_jmps(AST *ast)
+{
+  int cur_jmp_i = 0;                             // Index of JMP operation currently being processed
+  int unas_jmps = 0; 		                 // Unassigned JMP operations (without a matching JMP)
+  int first_jmp = 0;
+  for(int i = 0; i < ast->len; i++){
+    if(i == ast->len - 1 && unas_jmps != 0) i = first_jmp;
+    if(ast->ops[i].op != OP_JMPZ &&
+       ast->ops[i].op != OP_JMPNZ) continue;
+    else{
+      if(first_jmp == 0 && ast->ops[i].op == OP_JMPZ) first_jmp = i;
+      if(cur_jmp_i && ast->ops[i].op == OP_JMPZ){
+	unas_jmps++;
+	continue;
+      }
+      else if(unas_jmps == 0 && ast->ops[i].op == OP_JMPZ){
+	cur_jmp_i = i;
+	continue;
+      }
+
+      if(ast->ops[i].op == OP_JMPNZ &&
+	 unas_jmps == 0){
+	ast->ops[cur_jmp_i].prop.match = i;
+	ast->ops[i].prop.match = cur_jmp_i;
+	cur_jmp_i = 0;
+      } else if(ast->ops[i].op == OP_JMPNZ && unas_jmps > 0){
+	unas_jmps--;
+      }
+    }
+  }
+}
 
 unsigned char tape[30000] = {0};
 unsigned char *ptr = tape;
@@ -226,16 +262,20 @@ int main(int argc, char **argv)
   printf("%s\n", src);
   printf("%s\n", line__);
   printf("File size:\t%ld\n", src_size);
-  printf("Filename:\t%s\n\n", filename);
+  printf("Filename:\t%s\n", filename);
+  #ifdef AST_DEBUG
+  printf("\n");
+  #endif
 
   AST *ast = parse_source(src, src_size);
+  free(src);
+  match_jmps(ast);
 
   // here's where the actual interpretation happens.
   
   printf("%s\n", line__);
-
-  int last_jmp;
-  for(int i = 0; i < (int)ast->len; i++){
+  // int last_jmp;
+  for(int i = 0; i < ast->len; i++){
     int count = ast->ops[i].prop.count;
     switch(ast->ops[i].op){
     case OP_MVR:
@@ -260,14 +300,16 @@ int main(int argc, char **argv)
       break;
     case OP_JMPZ:
       if(*ptr == 0){
-	while(ast->ops[i].op != OP_JMPNZ) i++;
-      } else{
-	last_jmp = i;
-      }
+	// while(ast->ops[i].op != OP_JMPNZ) i++;
+	i = ast->ops[i].prop.match;
+      } //else{
+	// last_jmp = i;
+      //}
       break;
     case OP_JMPNZ:
       if(*ptr != 0){
-	i = last_jmp;
+	// i = last_jmp;
+	i = ast->ops[i].prop.match;
       }
       break;
     case OP_NULL:
@@ -276,7 +318,6 @@ int main(int argc, char **argv)
   }
 
   ast_free(ast);
-  free(ast);
 
   return 0;
 }
