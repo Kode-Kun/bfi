@@ -156,7 +156,7 @@ AST* parse_source(char *src, size_t size)
       op = char_to_op(c[i], count);
       ast_append(ast, op);
       #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type %s %d times to AST.\n", op_to_string(op), count);
+      fprintf(stderr, "OK:\tAdded operation of type %s %d time%sto AST.\n", op_to_string(op), count, count > 1 ? "s " : " ");
       #endif
       break;
     case '[':
@@ -164,7 +164,7 @@ AST* parse_source(char *src, size_t size)
       op = char_to_op(c[i], match);
       ast_append(ast, op);
       #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type %s %d times to AST.\n", op_to_string(op), count);
+      fprintf(stderr, "OK:\tAdded operation of type %s %d time to AST.\n", op_to_string(op), 1);
       #endif
       break;
     default:
@@ -174,7 +174,7 @@ AST* parse_source(char *src, size_t size)
       break;
     }
   }
-  return ast; 
+  return ast;
 }
 
 //TODO: fix this cursed function (flashbacks, anyone?)
