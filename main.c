@@ -3,8 +3,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
 
 #define line__ "-------------------------------"
+#define TAPE_LENGTH 30000
 
 //---------- Type declarations ----------
 
@@ -26,16 +28,10 @@ typedef enum OP_CODE
   OP_NULL,         // for debug
 }OP_CODE;
 
-union OP_PROP
-{
-  int count;
-  int match;
-};
-
 struct BF_OP
 {
   OP_CODE op;
-  union OP_PROP prop;
+  int count;
 };
 
 //---------- Abstract Syntax Tree ----------
@@ -54,7 +50,7 @@ void ast_append(AST *ast, BF_OP op)
   memcpy(&new[ast->len * sizeof(BF_OP)], &op, sizeof(BF_OP)); 
   ast->ops = new;
   ast->ops[ast->len].op = op.op;
-  ast->ops[ast->len].prop.count = op.prop.count;
+  ast->ops[ast->len].count = op.count;
   ast->len++;
 }
 
@@ -68,37 +64,37 @@ void ast_free(AST *ast)
 
 BF_OP char_to_op(char c, int prop)
 {
-  BF_OP op = {OP_NULL, {0}};
+  BF_OP op = {OP_NULL, 0};
   switch(c){
   case '>':
-    op = (BF_OP){ .op = OP_MVR,   {.count = prop} };
+    op = (BF_OP){ .op = OP_MVR,   .count = prop };
     break;
   case '<': 
-    op = (BF_OP){ .op = OP_MVL,   {.count = prop} };
+    op = (BF_OP){ .op = OP_MVL,   .count = prop };
     break;
   case '+': 
-    op = (BF_OP){ .op = OP_INC,   {.count = prop} };
+    op = (BF_OP){ .op = OP_INC,   .count = prop };
     break;
   case '-': 
-    op = (BF_OP){ .op = OP_DEC,   {.count = prop} };
+    op = (BF_OP){ .op = OP_DEC,   .count = prop };
     break;
   case ',': 
-    op = (BF_OP){ .op = OP_IN,    {.count = prop} };
+    op = (BF_OP){ .op = OP_IN,    .count = prop };
     break;
   case '.': 
-    op = (BF_OP){ .op = OP_OUT,   {.count = prop} };
+    op = (BF_OP){ .op = OP_OUT,   .count = prop };
     break;
   case '[': 
-    op = (BF_OP){ .op = OP_JMPZ,  {.match = prop} };
-    break;
-  case ']': 
-    op = (BF_OP){ .op = OP_JMPNZ, {.match = prop} };
+    op = (BF_OP){ .op = OP_JMPZ,  .count = prop };
+    break;			   
+  case ']': 			   
+    op = (BF_OP){ .op = OP_JMPNZ, .count = prop };
     break;
   }
   return op;
 }
 
-char *op_to_string(BF_OP op)
+char *op_to_str(BF_OP op)
 {
   char *s;
   switch(op.op){
@@ -140,7 +136,6 @@ AST* parse_source(char *src, size_t size)
   AST *ast = malloc(sizeof(AST));
   for(size_t i = 0; i < size; i++){
     int count = 1;
-    int match = 0;
     BF_OP op;
     switch(c[i]){
     case '>':
@@ -156,15 +151,15 @@ AST* parse_source(char *src, size_t size)
       op = char_to_op(c[i], count);
       ast_append(ast, op);
       #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type %s %d time%sto AST.\n", op_to_string(op), count, count > 1 ? "s " : " ");
+      fprintf(stderr, "OK:\tAdded operation of type %s %d time%sto AST.\n", op_to_str(op), count, count > 1 ? "s " : " ");
       #endif
       break;
     case '[':
     case ']':
-      op = char_to_op(c[i], match);
+      op = char_to_op(c[i], count);
       ast_append(ast, op);
       #ifdef AST_DEBUG
-      fprintf(stderr, "OK:\tAdded operation of type %s %d time to AST.\n", op_to_string(op), 1);
+      fprintf(stderr, "OK:\tAdded operation of type %s %d time to AST.\n", op_to_str(op), 1);
       #endif
       break;
     default:
@@ -177,43 +172,25 @@ AST* parse_source(char *src, size_t size)
   return ast;
 }
 
-//TODO: fix this cursed function (flashbacks, anyone?)
-// I honestly have no fucking idea how to implement error handling here (which would just be
-// in case there's a JMPZ without a matching JMPNZ and vice-versa, and give the exact position
-// of the error would be cool too. But i can't even get the JMPs to match in error-less code...)
-void match_jmps(AST *ast)
+#ifdef AST_DEBUG
+void log_ast(AST ast)
 {
-  int cur_jmp_i = 0;                             // Index of JMP operation currently being processed
-  int unas_jmps = 0; 		                 // Unassigned JMP operations (without a matching JMP)
-  int first_jmp = 0;
-  for(int i = 0; i < ast->len; i++){
-    if(i == ast->len - 1 && unas_jmps != 0) i = first_jmp;
-    if(ast->ops[i].op != OP_JMPZ &&
-       ast->ops[i].op != OP_JMPNZ) continue;
-    else{
-      if(first_jmp == 0 && ast->ops[i].op == OP_JMPZ) first_jmp = i;
-      if(cur_jmp_i && ast->ops[i].op == OP_JMPZ){
-	unas_jmps++;
-	continue;
-      }
-      else if(unas_jmps == 0 && ast->ops[i].op == OP_JMPZ){
-	cur_jmp_i = i;
-	continue;
-      }
-
-      if(ast->ops[i].op == OP_JMPNZ &&
-	 unas_jmps == 0){
-	ast->ops[cur_jmp_i].prop.match = i;
-	ast->ops[i].prop.match = cur_jmp_i;
-	cur_jmp_i = 0;
-      } else if(ast->ops[i].op == OP_JMPNZ && unas_jmps > 0){
-	unas_jmps--;
-      }
-    }
+  FILE *logfile = fopen("ast.log", "w");
+  if(logfile == NULL){
+    perror("fopen");
+    exit(1);
   }
+  for(int i = 0; i < ast.len; i++){
+    char *op = op_to_str(ast.ops[i]);
+    int count = ast.ops[i].count;
+    char *fstr = i == ast.len - 1 ? "%s : %d\n" : "%s : %d, ";
+    fprintf(logfile, fstr, op, count);
+  }
+  fclose(logfile);
 }
+#endif
 
-unsigned char tape[30000] = {0};
+unsigned char tape[TAPE_LENGTH] = {0};
 unsigned char *ptr = tape;
 
 int main(int argc, char **argv)
@@ -262,27 +239,33 @@ int main(int argc, char **argv)
   #endif
 
   AST *ast = parse_source(src, src_size);
+  #ifdef AST_DEBUG
+  log_ast(*ast);
+  #endif
   free(src);
-  match_jmps(ast);
 
   // here's where the actual interpretation happens.
   
   printf("%s\n", line__);
-  // int last_jmp;
   for(int i = 0; i < ast->len; i++){
-    int count = ast->ops[i].prop.count;
+    int count = ast->ops[i].count;
+    int nested_jmps = 0;
     switch(ast->ops[i].op){
     case OP_MVR:
-      ptr += count;
+      if(ptr == &tape[TAPE_LENGTH]) ptr = &tape[0];
+      else ptr += count;
       break;
     case OP_MVL:
-      ptr -= count;
+      if(ptr == &tape[0]) ptr = &tape[TAPE_LENGTH];
+      else ptr -= count;
       break;
     case OP_INC:
-      *ptr += count;
+      if(*ptr == UCHAR_MAX) *ptr = 0;
+      else *ptr += count;
       break;
     case OP_DEC:
-      *ptr -= count;
+      if(*ptr == 0) *ptr = UCHAR_MAX;
+      else *ptr -= count;
       break;
     case OP_IN:
       *ptr = (unsigned char)fgetc(stdin);
@@ -294,16 +277,30 @@ int main(int argc, char **argv)
       break;
     case OP_JMPZ:
       if(*ptr == 0){
-	// while(ast->ops[i].op != OP_JMPNZ) i++;
-	i = ast->ops[i].prop.match;
-      } //else{
-	// last_jmp = i;
-      //}
+	for(int j = i; j < (ast->len - i); j++){
+	  if(ast->ops[j].op == OP_JMPZ && j != i) nested_jmps++;
+	  if(ast->ops[j].op == OP_JMPNZ && nested_jmps > 0){
+	    nested_jmps--;
+	  }
+	  if(ast->ops[j].op == OP_JMPNZ && nested_jmps == 0){
+	    i = j;
+	    break;
+	  }
+	}
+      }
       break;
     case OP_JMPNZ:
       if(*ptr != 0){
-	// i = last_jmp;
-	i = ast->ops[i].prop.match;
+	for(int j = i; j > 0; j--){
+	  if(ast->ops[j].op == OP_JMPNZ && j != i) nested_jmps++;
+	  if(ast->ops[j].op == OP_JMPZ && nested_jmps > 0){
+	    nested_jmps--;
+	  }
+	  if(ast->ops[j].op == OP_JMPZ && nested_jmps == 0){
+	    i = j;
+	    break;
+	  }
+	}
       }
       break;
     case OP_NULL:
