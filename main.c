@@ -7,6 +7,7 @@
 
 #define line__ "-------------------------------"
 #define TAPE_LENGTH 30000
+#define LOGPATH "ast.log"
 
 //---------- Type declarations ----------
 
@@ -175,7 +176,7 @@ AST* parse_source(char *src, size_t size)
 #ifdef AST_DEBUG
 void log_ast(AST ast)
 {
-  FILE *logfile = fopen("ast.log", "w");
+  FILE *logfile = fopen(LOGPATH, "w");
   if(logfile == NULL){
     perror("fopen");
     exit(1);
@@ -183,8 +184,8 @@ void log_ast(AST ast)
   for(int i = 0; i < ast.len; i++){
     char *op = op_to_str(ast.ops[i]);
     int count = ast.ops[i].count;
-    char *fstr = i == ast.len - 1 ? "%s : %d\n" : "%s : %d, ";
-    fprintf(logfile, fstr, op, count);
+    char *fstr = i == ast.len - 1 ? "%d:\t%s : %d\n" : "%d:\t%s : %d;\n";
+    fprintf(logfile, fstr, i, op, count);
   }
   fclose(logfile);
 }
@@ -278,9 +279,12 @@ int main(int argc, char **argv)
     case OP_JMPZ:
       if(*ptr == 0){
 	for(int j = i; j < (ast->len - i); j++){
-	  if(ast->ops[j].op == OP_JMPZ && j != i) nested_jmps++;
+	  if(ast->ops[j].op == OP_JMPZ && j != i){
+	    nested_jmps++;
+	  }
 	  if(ast->ops[j].op == OP_JMPNZ && nested_jmps > 0){
 	    nested_jmps--;
+	    continue;
 	  }
 	  if(ast->ops[j].op == OP_JMPNZ && nested_jmps == 0){
 	    i = j;
@@ -292,9 +296,12 @@ int main(int argc, char **argv)
     case OP_JMPNZ:
       if(*ptr != 0){
 	for(int j = i; j > 0; j--){
-	  if(ast->ops[j].op == OP_JMPNZ && j != i) nested_jmps++;
+	  if(ast->ops[j].op == OP_JMPNZ && j != i){
+	    nested_jmps++;
+	  }
 	  if(ast->ops[j].op == OP_JMPZ && nested_jmps > 0){
 	    nested_jmps--;
+	    continue;
 	  }
 	  if(ast->ops[j].op == OP_JMPZ && nested_jmps == 0){
 	    i = j;
