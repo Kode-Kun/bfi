@@ -130,8 +130,63 @@ char *op_to_str(BF_OP op)
   return s;
 }
 
+// TODO: fix the way the JMP without a match is found.
+// Currently it just returns the position of the last JMP in the category
+// of the ones without a match. It'll do for now but I think there's a better way.
+
+// The buffer that holds the position of the error must be allocated 
+// (and freed) by the caller and must have a size of sizeof(int) * 2
+int parse_source(char *src, size_t size, int *buf)
+{
+  int jmpz = 0;
+  int jmpnz = 0;
+  int linenum = 1;
+  int colnum = 0;
+  int lastjmpz[2]  = {0 , 0};
+  int lastjmpnz[2] = {0 , 0};
+  for(int i = 0; i < (int)size; i++){
+    if(src[i] == '['){
+      jmpz++;
+      colnum++;
+      lastjmpz[0] = linenum;
+      lastjmpz[1] = colnum;
+      continue;
+    }
+    if(src[i] == ']'){
+      jmpnz++;
+      colnum++;
+      lastjmpnz[0] = linenum;
+      lastjmpnz[1] = colnum;
+      continue;
+    }
+    if(src[i] == '\n'){
+      linenum++;
+      colnum = 0;
+      continue;
+    }
+    colnum++;
+  }
+
+  int jmp_total = jmpnz + jmpz;
+  if(jmp_total % 2 != 0){
+    if(jmpz > jmpnz){
+      buf[0] = lastjmpz[0];
+      buf[1] = lastjmpz[1];
+      return 1;
+    }
+    if(jmpnz > jmpz){
+      buf[0] = lastjmpnz[0];
+      buf[1] = lastjmpnz[1];
+      return 2;
+    }
+    return 1;
+  }
+
+  return 0;
+}
+
 // returns pointer to heap-allocated AST struct. Caller must call free()
-AST* parse_source(char *src, size_t size)
+AST* lex(char *src, size_t size)
 {
   char *c = src;
   AST *ast = malloc(sizeof(AST));
@@ -239,11 +294,25 @@ int main(int argc, char **argv)
   printf("\n");
   #endif
 
-  AST *ast = parse_source(src, src_size);
+  int *err_buf = malloc(sizeof(int) * 2);
+  if(!err_buf){
+    perror("malloc");
+    exit(1);
+  }
+
+  int err;
+  if((err = parse_source(src, src_size, err_buf)) != 0){
+    fprintf(stderr, "%s:%d:%d: error: JMP%s statement without a match.\n", filename, err_buf[0], err_buf[1], err == 2 ? "NZ" : "Z");
+    exit(1);
+  }
+
+  AST *ast = lex(src, src_size);
   #ifdef AST_DEBUG
   log_ast(*ast);
   #endif
   free(src);
+  free(err_buf);
+  fclose(src_fd);
 
   // here's where the actual interpretation happens.
   
@@ -316,6 +385,5 @@ int main(int argc, char **argv)
   }
 
   ast_free(ast);
-
   return 0;
 }
